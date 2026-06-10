@@ -349,29 +349,6 @@
                         "SISA": sisa
                     };
                 });
-            } else if (moduleName === 'data-leads') {
-                exportData = rawData.map((l, idx) => {
-                    const platform = Array.isArray(l.platform_medsos) ? l.platform_medsos.join(', ') : (l.platform_medsos || '-');
-                    const infoDari = Array.isArray(l.info_villa_merah_dari) ? l.info_villa_merah_dari.join(', ') : (l.info_villa_merah_dari || '-');
-                    
-                    return {
-                        "NO": idx + 1,
-                        "NAMA SISWA": l.nama_siswa || '-',
-                        "TEMPAT TANGGAL LAHIR": l.ttl || '-',
-                        "ASAL SEKOLAH": l.asal_sekolah || '-',
-                        "KELAS": l.kelas || '-',
-                        "ALAMAT": l.alamat || '-',
-                        "KOTA/KAB ASAL": l.asal_kota || '-',
-                        "INFO PROGRAM": l.program || '-',
-                        "MEDIA SOSIAL": platform,
-                        "NAMA AKUN": l.nama_medsos || '-',
-                        "INFORMASI VILLA MERAH DARI": infoDari,
-                        "HP SISWA": l.no_hp || '-',
-                        "NAMA ORTU": l.nama_ortu || '-',
-                        "HP ORTU": l.no_tlp_ortu || '-',
-                        "TGL INPUT": formatTanggalExport(l.tanggal_input || l.createdAt)
-                    };
-                });
             }
 
             const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -443,25 +420,6 @@
                                     });
                                 }
 
-                            } else if (moduleName === 'data-leads') {
-                                mapped.wilayah = location;
-                                mapped.nama_siswa = row["NAMA SISWA"] || '';
-                                mapped.ttl = row["TEMPAT TANGGAL LAHIR"] || '';
-                                mapped.asal_sekolah = row["ASAL SEKOLAH"] || '';
-                                mapped.kelas = row["KELAS"] || '';
-                                mapped.alamat = row["ALAMAT"] || '';
-                                mapped.asal_kota = row["KOTA/KAB ASAL"] || '';
-                                
-                                mapped.program = row["INFO PROGRAM"] || '-';
-
-                                mapped.platform_medsos = row["MEDIA SOSIAL"] ? row["MEDIA SOSIAL"].split(', ') : [];
-                                mapped.nama_medsos = row["NAMA AKUN"] || '';
-                                mapped.info_villa_merah_dari = row["INFORMASI VILLA MERAH DARI"] ? row["INFORMASI VILLA MERAH DARI"].split(', ') : [];
-                                mapped.no_hp = row["HP SISWA"] || '';
-                                mapped.nama_ortu = row["NAMA ORTU"] || '';
-                                mapped.no_tlp_ortu = row["HP ORTU"] || '';
-                                mapped.createdAt = parseExcelDate(row["TGL INPUT"]);
-                                mapped.tanggal_input = mapped.createdAt;
                             }
                             currentData.push(mapped);
                         });
@@ -865,26 +823,10 @@
             { id: 'dashboard', name: 'Dashboard', icon: 'dashboard' },
             { id: 'target-peraihan', name: 'Peraihan Siswa & Omset', icon: 'ads_click', submenus: ['Seluruh Wilayah', 'Bandung', 'Jakarta Selatan', 'Jakarta Pusat'] },
             { id: 'data-siswa', name: 'Data Siswa', icon: 'group', submenus: ['Bandung', 'Jakarta Selatan', 'Jakarta Pusat'] },
-            { id: 'data-leads', name: 'Data Leads', icon: 'description', submenus: ['Bandung', 'Jakarta Selatan', 'Jakarta Pusat'] },
-            { id: 'crm-followup', name: 'CRM Follow Up', icon: 'quick_phrases', submenus: ['Bandung', 'Jakarta Selatan', 'Jakarta Pusat'] },
             { id: 'manajemen-user', name: 'Manajemen User', icon: 'manage_accounts', adminOnly: true },
             { id: 'log-activity', name: 'Log Activity', icon: 'history', adminOnly: true }
         ];
 
-        function getLeadsProgramsList() {
-            return [
-                'Program SR', 
-                'Program SR Intensif', 
-                'Program SR Anak', 
-                'Program SR SMP', 
-                'Program Arsitektur', 
-                'Program Intensif USM Unpar', 
-                'Program Intensif IUP', 
-                'Program SR Online', 
-                'Program Arsitektur Online'
-            ].sort();
-        }
-        
         function renderSidebar() {
             if (!currentUser) return;
             
@@ -939,7 +881,7 @@
             
             const currentSystemYear = new Date().getFullYear().toString();
             
-            if (module === 'crm-followup' || module === 'target-peraihan') {
+            if (module === 'target-peraihan') {
                 selectedYearFilter = (selectedYearFilter && selectedYearFilter !== 'all') ? selectedYearFilter : currentSystemYear;
                 selectedMonthFilter = (selectedMonthFilter && selectedMonthFilter !== 'all') ? selectedMonthFilter : (new Date().getMonth() + 1).toString();
             } else {
@@ -968,12 +910,6 @@
                 case 'data-siswa':
                     renderDataSiswa();
                     break;
-                case 'data-leads':
-                    renderDataLeadsDetail();
-                    break;
-                case 'crm-followup':
-                    renderCRMFollowUp();
-                    break;
                 case 'target-peraihan':
                     renderTargetPeraihanDetail();
                     break;
@@ -988,566 +924,6 @@
             }
         }
 
-        function renderCRMFollowUp() {
-            const location = currentSubModule || 'Bandung';
-            
-            const isAuthorized = (currentUser.role === 'super admin') || 
-                                 (currentUser.role === 'admin' && (currentUser.wilayah === 'Semua' || currentUser.wilayah === location));
-
-            let allLeadsInWilayah = currentData.filter(d => d.module === 'data-leads' && d.wilayah === location);
-            
-            let leadsDataFiltered = [...allLeadsInWilayah];
-            
-            const progF = selectedProgramFilter || 'all';
-            const monthF = selectedMonthFilter || (new Date().getMonth() + 1).toString();
-            const yearF = selectedYearFilter || new Date().getFullYear().toString();
-
-            if (progF !== 'all') {
-                leadsDataFiltered = leadsDataFiltered.filter(d => d.program === progF);
-            }
-            if (monthF !== 'all') {
-                leadsDataFiltered = leadsDataFiltered.filter(d => {
-                    const tgl = d.tanggal_input || d.createdAt;
-                    if(!tgl) return false;
-                    return (new Date(tgl).getMonth() + 1) == monthF;
-                });
-            }
-            if (yearF !== 'all') {
-                leadsDataFiltered = leadsDataFiltered.filter(d => {
-                    const tgl = d.tanggal_input || d.createdAt;
-                    if(!tgl) return false;
-                    return new Date(tgl).getFullYear() == yearF;
-                });
-            }
-
-            const totalLeads = leadsDataFiltered.length;
-            const totalClosing = leadsDataFiltered.filter(l => l.status_crm === 'Deal' || l.is_closing === true).length;
-            const conversionRate = totalLeads > 0 ? ((totalClosing / totalLeads) * 100).toFixed(1) : 0;
-            
-            let colorClass = "text-rose-600"; 
-            if (conversionRate >= 20) colorClass = "text-emerald-600"; 
-            else if (conversionRate >= 10) colorClass = "text-amber-500";
-
-            const stats = getCRMStatistics(leadsDataFiltered);
-            const allPrograms = getLeadsProgramsList();
-            const content = document.getElementById('main-content');
-
-            content.innerHTML = `
-                <div class="bg-white rounded-lg p-6 shadow-xl border border-blue-200 font-['Poppins']">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b pb-6">
-                        <div>
-                            <h2 class="text-2xl font-bold text-blue-600 flex items-center gap-2">
-                                <span class="material-symbols-rounded">quick_phrases</span> CRM Follow Up - ${location}
-                            </h2>
-                            <p class="text-sm text-gray-500 mt-1">Analisis efektivitas konversi leads</p>
-                        </div>
-                        <div class="flex flex-wrap gap-3">
-                            <select id="program-filter-crm" onchange="applyCRMFilter()" class="px-3 py-2 rounded bg-white border border-blue-300 text-xs font-normal uppercase shadow-sm outline-none focus:ring-2 focus:ring-blue-400">
-                                <option value="all" ${progF === 'all' ? 'selected' : ''}>Semua Program</option>
-                                ${allPrograms.map(prog => `<option value="${prog}" ${progF === prog ? 'selected' : ''}>${prog || '-'}</option>`).join('')}
-                            </select>
-                            <select id="month-filter-crm" onchange="applyCRMFilter()" class="px-3 py-2 rounded bg-white border border-blue-300 text-xs font-normal uppercase shadow-sm outline-none focus:ring-2 focus:ring-blue-400">
-                                ${daftarNamaBulan.slice(1).map((m, idx) => `<option value="${idx+1}" ${monthF == idx+1 ? 'selected' : ''}>${m || '-'}</option>`).join('')}
-                            </select>
-                            <select id="year-filter-crm" onchange="applyCRMFilter()" class="px-3 py-2 rounded bg-white border border-blue-300 text-xs font-normal uppercase shadow-sm outline-none focus:ring-2 focus:ring-blue-400">
-                                ${generateYearOptionsForFilter(yearF)}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-white p-5 rounded-2xl border border-blue-100 shadow-md">
-                            <h3 class="text-xs font-black text-blue-700 mb-6 uppercase text-center tracking-widest">Statistik Status Leads</h3>
-                            <div class="h-64"><canvas id="chart-crm-funnel"></canvas></div>
-                        </div>
-
-                        <div class="bg-white p-5 rounded-2xl border border-blue-100 shadow-md flex flex-col items-center justify-center">
-                            <h3 class="text-xs font-black text-blue-700 mb-6 uppercase text-center tracking-widest">Efektivitas Closing (Conversion Rate)</h3>
-                            <div class="relative flex items-center justify-center w-full min-h-[190px]">
-                                <svg class="w-48 h-48 transform -rotate-90">
-                                    <circle class="text-gray-100" stroke-width="12" stroke="currentColor" fill="transparent" r="70" cx="96" cy="96" />
-                                    <circle class="${conversionRate >= 20 ? 'text-emerald-500' : (conversionRate >= 10 ? 'text-amber-500' : 'text-rose-500')}" 
-                                        stroke-width="12" 
-                                        stroke-dasharray="${(conversionRate / 100) * 440}, 440" 
-                                        stroke-linecap="round" 
-                                        stroke="currentColor" 
-                                        fill="transparent" 
-                                        r="70" cx="96" cy="96" />
-                                </svg>
-                                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                    <span class="text-4xl font-black ${colorClass} tracking-tighter Kalimat leading-none">${conversionRate}%</span>
-                                    <p class="text-[9px] text-gray-400 uppercase font-black mt-1">Siswa Closing</p>
-                                </div>
-                            </div>
-                            
-                            <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                                <div class="bg-blue-50 p-4 rounded-2xl text-center border border-blue-100">
-                                    <span class="text-[10px] font-black text-blue-600 uppercase block mb-1">Total Leads</span>
-                                    <span class="text-2xl font-black text-blue-900">${totalLeads}</span>
-                                </div>
-                                <div class="bg-emerald-50 p-4 rounded-2xl text-center border border-emerald-100">
-                                    <span class="text-[10px] font-black text-emerald-600 uppercase block mb-1">Closing</span>
-                                    <span class="text-2xl font-black text-blue-900">${totalClosing}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 mb-8">
-                        <div class="bg-white p-5 rounded-2xl border border-blue-100 shadow-md">
-                            <h3 class="text-xs font-black text-blue-700 mb-6 uppercase text-center tracking-widest">Grafik peraihan siswa dan leads Harian</h3>
-                            <div class="h-64"><canvas id="chart-crm-daily"></canvas></div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                        <div class="bg-white p-5 rounded-2xl border border-blue-100 shadow-md">
-                            <h3 class="text-xs font-black text-blue-700 mb-6 uppercase text-center tracking-widest">5 Program Closing Terbanyak</h3>
-                            <div class="h-64"><canvas id="chart-crm-program"></canvas></div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl border border-blue-100 shadow-md">
-                            <h3 class="text-xs font-black text-blue-700 mb-6 uppercase text-center tracking-widest">5 Wilayah Leads Terbanyak</h3>
-                            <div class="h-64"><canvas id="chart-crm-kota"></canvas></div>
-                        </div>
-                         <div class="bg-white p-5 rounded-2xl border border-blue-100 shadow-md">
-                            <h3 class="text-xs font-black text-blue-700 mb-6 uppercase text-center tracking-widest">5 Sumber Info Terbanyak</h3>
-                            <div class="h-64"><canvas id="chart-crm-info"></canvas></div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
-                        <div class="bg-blue-600 px-6 py-4 flex justify-between items-center">
-                            <h3 class="text-white font-bold uppercase text-xs tracking-widest">Database Leads Calon Siswa</h3>
-                            <span class="bg-blue-800 text-white px-4 py-1 rounded-full text-[10px] font-black">${leadsDataFiltered.length} TOTAL DATA</span>
-                        </div>
-                        <div class="table-container" style="max-height: 500px; overflow-y: auto;">
-                            <table class="w-full text-sm">
-                                <thead class="sticky top-0 bg-gray-50 z-10 border-b border-gray-200">
-                                    <tr class="text-slate-600">
-                                        <th>NO</th>
-                                        <th>NAMA SISWA</th>
-                                        <th>ASAL SEKOLAH</th>
-                                        <th>KELAS</th>
-                                        <th>PROGRAM MINAT</th>
-                                        <th>STATUS</th>
-                                        <th>TANGGAL FOLLOW UP</th>
-                                        <th>TANGGAL DAFTAR</th>
-                                        <th>CATATAN</th>
-                                        ${isAuthorized ? '<th class="col-aksi">AKSI</th>' : ''}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${leadsDataFiltered.length === 0 ? `<tr><td colspan="${isAuthorized ? '10' : '9'}" class="p-10 text-center text-gray-400">Belum ada data leads untuk periode ini</td></tr>` : 
-                                      leadsDataFiltered.map((lead, idx) => {
-                                        let statusTampil = lead.status_crm === 'Deal' ? 'Closing' : (lead.status_crm || 'Pending');
-                                        const programTampil = lead.status_crm === 'Deal' ? (lead.program_pendidikan || lead.program) : lead.program;
-                                        return `
-                                        <tr class="border-b border-slate-100 hover:bg-blue-50 transition-all">
-                                            <td class="p-3 text-center font-mono text-[10px]">${idx + 1}</td>
-                                            <td class="p-3 font-black uppercase text-slate-800 text-xs">${lead.nama_siswa || '-'}</td>
-                                            <td class="p-3 text-[10px] uppercase text-slate-600">${lead.asal_sekolah || '-'}</td>
-                                            <td class="p-3 text-center text-[10px] uppercase text-slate-600">${lead.kelas || '-'}</td>
-                                            <td class="p-3 text-[10px] font-bold text-blue-700 uppercase">${programTampil || '-'}</td>
-                                            <td class="p-3 text-center">
-                                                <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase shadow-sm
-                                                    ${statusTampil === 'Closing' ? 'bg-emerald-500 text-white' : 
-                                                      statusTampil === 'Hot' ? 'bg-rose-500 text-white' : 
-                                                      statusTampil === 'Cold' ? 'bg-slate-400 text-white' :
-                                                      'bg-sky-500 text-white'}">
-                                                    ${statusTampil || '-'}
-                                                </span>
-                                            </td>
-                                            <td class="p-3 text-center font-mono text-[10px] font-black ${lead.tgl_followup && isOverdue(lead.tgl_followup) ? 'text-rose-600 bg-rose-50 rounded-lg' : 'text-slate-600'}">
-                                                ${lead.tgl_followup ? formatTanggal(lead.tgl_followup) : '-'}
-                                            </td>
-                                            <td class="p-3 text-center font-mono text-[10px] text-slate-600">
-                                                ${lead.status_crm === 'Deal' ? formatTanggal(lead.tanggal_closing || lead.tanggal_input || lead.createdAt) : '-'}
-                                            </td>
-                                            <td class="p-3 text-[10px] italic text-slate-500 allow-wrap leading-relaxed">${lead.catatan_crm || '-'}</td>
-                                            ${isAuthorized ? `
-                                            <td class="p-3 text-center">
-                                                <div class="flex flex-row justify-center gap-3">
-                                                    <button onclick="showUpdateCRMForm('${lead.__backendId}')" class="text-blue-600 font-bold hover:underline uppercase text-[11px]">EDIT</button>
-                                                    <button onclick="deleteData('${lead.__backendId}')" class="text-red-600 font-bold hover:underline uppercase text-[11px]">HAPUS</button>
-                                                </div>
-                                            </td>` : ''}
-                                        </tr>`}).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>`;
-            
-            setTimeout(() => renderCRMCharts(stats), 100);
-        }
-
-        function getCRMStatistics(data) {
-            const tahun = (selectedYearFilter && selectedYearFilter !== 'all') ? parseInt(selectedYearFilter) : new Date().getFullYear();
-            const bulan = (selectedMonthFilter && selectedMonthFilter !== 'all') ? parseInt(selectedMonthFilter) : new Date().getMonth() + 1;
-            const daysInMonth = new Date(tahun, bulan, 0).getDate();
-
-            const stats = {
-                funnel: { labels: ['Pending', 'Warm', 'Hot', 'Closing', 'Cold'], data: [0, 0, 0, 0, 0] },
-                program: { labels: [], data: [] },
-                cities: { labels: [], data: [] },
-                sources: { labels: [], data: [] },
-                daily: { labels: Array.from({length: daysInMonth}, (_, i) => (i + 1).toString()), leads: new Array(daysInMonth).fill(0), closing: new Array(daysInMonth).fill(0) }
-            };
-
-            const progCounts = {};
-            const cityCounts = {};
-            const infoCounts = {};
-
-            data.forEach(item => {
-                let s = item.status_crm === 'Deal' ? 'Closing' : (item.status_crm || 'Pending');
-                const city = (item.asal_kota || 'LAINNYA').toUpperCase();
-
-                const fIdx = stats.funnel.labels.indexOf(s);
-                if (fIdx !== -1) stats.funnel.data[fIdx]++;
-
-                if (s === 'Closing') {
-                    const p = (item.program_pendidikan || item.program || 'Unknown').toUpperCase();
-                    progCounts[p] = (progCounts[p] || 0) + 1;
-                }
-
-                cityCounts[city] = (cityCounts[city] || 0) + 1;
-
-                if (Array.isArray(item.info_villa_merah_dari)) {
-                    item.info_villa_merah_dari.forEach(info => {
-                        const infoKey = info.toUpperCase();
-                        infoCounts[infoKey] = (infoCounts[infoKey] || 0) + 1;
-                    });
-                }
-
-                const tglInputStr = item.tanggal_input || item.createdAt;
-                if(tglInputStr) {
-                    const dIn = new Date(tglInputStr);
-                    const isYearMatch = (!selectedYearFilter || selectedYearFilter === 'all') || dIn.getFullYear() == selectedYearFilter;
-                    const isMonthMatch = (!selectedMonthFilter || selectedMonthFilter === 'all') || (dIn.getMonth() + 1) == selectedMonthFilter;
-                    
-                    if(isYearMatch && isMonthMatch) {
-                        const dayIn = dIn.getDate();
-                        if(dayIn >= 1 && dayIn <= daysInMonth) {
-                            stats.daily.leads[dayIn-1]++; 
-                        }
-                    }
-                }
-
-                if(item.status_crm === 'Deal' || item.is_closing === true) {
-                    const tglClosingStr = item.tanggal_closing || item.tanggal_input || item.createdAt;
-                    if(tglClosingStr) {
-                        const dCl = new Date(tglClosingStr);
-                        const isYearMatchCl = (!selectedYearFilter || selectedYearFilter === 'all') || dCl.getFullYear() == selectedYearFilter;
-                        const isMonthMatchCl = (!selectedMonthFilter || selectedMonthFilter === 'all') || (dCl.getMonth() + 1) == selectedMonthFilter;
-
-                        if(isYearMatchCl && isMonthMatchCl) {
-                            const dayCl = dCl.getDate();
-                            if(dayCl >= 1 && dayCl <= daysInMonth) {
-                                stats.daily.closing[dayCl-1]++;
-                            }
-                        }
-                    }
-                }
-            });
-
-            stats.cities.labels = Object.entries(cityCounts).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => x[0]);
-            stats.cities.data = Object.entries(cityCounts).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => x[1]);
-
-            stats.sources.labels = Object.entries(infoCounts).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => x[0]);
-            stats.sources.data = Object.entries(infoCounts).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => x[1]);
-
-            stats.program.labels = Object.entries(progCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(x => x[0]);
-            stats.program.data = Object.entries(progCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(x => x[1]);
-
-            return stats;
-        }
-
-        function renderCRMCharts(stats) {
-            const fontConfig = { family: 'Poppins', size: 10, weight: 'bold' };
-
-            new Chart(document.getElementById('chart-crm-kota'), {
-                type: 'doughnut',
-                data: {
-                    labels: stats.cities.labels,
-                    datasets: [{
-                        data: stats.cities.data,
-                        backgroundColor: ['#475569', '#0ea5e9', '#6366f1', '#14b8a6', '#f43f5e']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { font: { size: 9, family: 'Poppins' } } } },
-                    cutout: '40%'
-                }
-            });
-
-            new Chart(document.getElementById('chart-crm-program'), {
-                type: 'doughnut',
-                data: {
-                    labels: stats.program.labels,
-                    datasets: [{
-                        data: stats.program.data,
-                        backgroundColor: ['#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { position: 'bottom', labels: { font: { size: 9, family: 'Poppins' } } } 
-                    },
-                    cutout: '40%'
-                }
-            });
-
-            new Chart(document.getElementById('chart-crm-funnel'), {
-                type: 'bar',
-                data: {
-                    labels: stats.funnel.labels,
-                    datasets: [{ 
-                        data: stats.funnel.data, 
-                        backgroundColor: ['#38bdf8', '#fbbf24', '#f43f5e', '#10b981', '#94a3b8'],
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { 
-                        x: { ticks: { font: fontConfig } }, 
-                        y: { beginAtZero: true, ticks: { font: fontConfig, stepSize: 1 } } 
-                    }
-                }
-            });
-
-            new Chart(document.getElementById('chart-crm-info'), {
-                type: 'doughnut',
-                data: {
-                    labels: stats.sources.labels,
-                    datasets: [{
-                        data: stats.sources.data,
-                        backgroundColor: ['#8b5cf6', '#06b6d4', '#fb7185', '#94a3b8', '#f59e0b']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { font: { size: 9, family: 'Poppins' } } } },
-                    cutout: '40%'
-                }
-            });
-
-            new Chart(document.getElementById('chart-crm-daily'), {
-                type: 'bar',
-                data: {
-                    labels: stats.daily.labels,
-                    datasets: [
-                        {
-                            label: 'Leads Masuk',
-                            data: stats.daily.leads,
-                            backgroundColor: '#3b82f6',
-                            borderRadius: 4
-                        },
-                        {
-                            label: 'Closing',
-                            data: stats.daily.closing,
-                            backgroundColor: '#10b981',
-                            borderRadius: 4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { font: { size: 10, family: 'Poppins', weight: 'bold' } } } },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } },
-                        x: { ticks: { font: { size: 9 } } }
-                    }
-                }
-            });
-        }
-
-        function isOverdue(dateStr) {
-            if(!dateStr) return false;
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            return new Date(dateStr) < today;
-        }
-
-        function applyCRMFilter() {
-            selectedProgramFilter = document.getElementById('program-filter-crm').value;
-            selectedMonthFilter = document.getElementById('month-filter-crm').value;
-            selectedYearFilter = document.getElementById('year-filter-crm').value;
-            renderCRMFollowUp();
-        }
-
-        function showUpdateCRMForm(backendId) {
-            const lead = currentData.find(d => d.__backendId === backendId);
-            if (!lead) return;
-            
-            const listProgramSiswa = getAllProgramsList();
-
-            const content = document.getElementById('main-content');
-            content.innerHTML = `
-                <div class="bg-white p-6 rounded-lg shadow-xl max-md mx-auto border border-blue-200 font-['Poppins']">
-                    <h2 class="text-xl font-bold mb-6 text-blue-600 flex items-center gap-2">
-                        <span class="material-symbols-rounded">edit_note</span> Update Follow Up
-                    </h2>
-                    <div class="space-y-4">
-                        <div class="text-left">
-                            <label class="text-xs font-bold text-gray-500 uppercase">Nama Siswa</label>
-                            <p class="font-bold text-gray-800 uppercase text-sm">${lead.nama_siswa || '-'}</p>
-                        </div>
-                        <div class="text-left">
-                            <label class="text-xs font-bold text-gray-500 uppercase">Status Prospek</label>
-                            <select id="crm-status" onchange="toggleBiayaInput()" class="w-full p-2 border rounded border-blue-300 outline-none focus:ring-2 focus:ring-blue-400">
-                                <option value="Pending" ${lead.status_crm === 'Pending' ? 'selected' : ''}>Pending (Belum Respon)</option>
-                                <option value="Warm" ${lead.status_crm === 'Warm' ? 'selected' : ''}>Warm (Tanya-tanya)</option>
-                                <option value="Hot" ${lead.status_crm === 'Hot' ? 'selected' : ''}>Hot (Sangat Tertarik)</option>
-                                <option value="Deal" ${lead.status_crm === 'Deal' ? 'selected' : ''}>Closing (Daftar)</option>
-                                <option value="Cold" ${lead.status_crm === 'Cold' ? 'selected' : ''}>Cold (Batal/Tidak Minat)</option>
-                            </select>
-                        </div>
-
-                        <div id="section-biaya-deal" class="hidden space-y-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                            <div class="text-left">
-                                <label class="text-xs font-bold text-green-700 uppercase">Program Pendidikan (Wajib)</label>
-                                <select id="crm-program-siswa" class="w-full p-2 border border-green-300 rounded outline-none focus:ring-2 focus:ring-blue-400">
-                                    <option value="">Pilih Program Kelas</option>
-                                    ${listProgramSiswa.map(prog => `<option value="${prog}">${prog || '-'}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="text-left">
-                                <label class="text-xs font-bold text-green-700 uppercase">Total Biaya Pendidikan</label>
-                                <input type="text" id="crm-biaya" placeholder="Contoh: 15.000.000" class="w-full p-2 border border-green-300 rounded outline-none focus:ring-2 focus:ring-blue-400">
-                            </div>
-                            <div class="text-left">
-                                <label class="text-xs font-bold text-green-700 uppercase">Jumlah Bayar (DP/Lunas)</label>
-                                <input type="text" id="crm-bayar" placeholder="Contoh: 5.000.000" class="w-full p-2 border border-green-300 rounded outline-none focus:ring-2 focus:ring-blue-400">
-                            </div>
-                        </div>
-
-                        <div id="section-catatan-standard" class="space-y-4">
-                            <div class="text-left">
-                                <label id="lbl-tgl-crm" class="text-xs font-bold text-gray-500 uppercase">${lead.status_crm === 'Deal' ? 'TANGGAL DAFTAR' : 'TANGGAL FOLLOW UP'}</label>
-                                <input type="date" id="crm-date" value="${lead.tgl_followup || lead.tanggal_closing || ''}" class="w-full p-2 border rounded border-blue-300 outline-none focus:ring-2 focus:ring-blue-400">
-                            </div>
-                            <div class="text-left">
-                                <label class="text-xs font-bold text-gray-500 uppercase">Catatan Interaksi</label>
-                                <textarea id="crm-catatan" class="w-full p-2 border rounded border-blue-300 h-24 outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-300" placeholder="Hasil telepon, chat, atau alasan batal...">${lead.catatan_crm || ''}</textarea>
-                            </div>
-                        </div>
-
-                        <div class="flex gap-2 pt-4">
-                            <button onclick="saveCRMProgress('${lead.__backendId}')" class="bg-blue-600 text-white px-4 py-2 rounded flex-1 font-bold shadow-md hover:bg-blue-700 transition">SIMPAN</button>
-                            <button onclick="renderCRMFollowUp()" class="bg-gray-400 text-white px-4 py-2 rounded flex-1 font-bold shadow-md hover:bg-gray-500 transition">BATAL</button>
-                        </div>
-                    </div>
-                </div>`;
-            
-            formatNumberInput('crm-biaya');
-            formatNumberInput('crm-bayar');
-            toggleBiayaInput();
-        }
-
-        function toggleBiayaInput() {
-            const status = document.getElementById('crm-status').value;
-            const section = document.getElementById('section-biaya-deal');
-            const labelTgl = document.getElementById('lbl-tgl-crm');
-            
-            if (status === 'Deal') {
-                section.classList.remove('hidden');
-                if (labelTgl) labelTgl.textContent = 'TANGGAL DAFTAR';
-            } else {
-                section.classList.add('hidden');
-                if (labelTgl) labelTgl.textContent = 'TANGGAL FOLLOW UP';
-            }
-        }
-
-        async function saveCRMProgress(backendId) {
-            const status = document.getElementById('crm-status').value;
-            const tglAction = document.getElementById('crm-date').value; 
-            const catatan = document.getElementById('crm-catatan').value;
-            
-            const biayaRaw = document.getElementById('crm-biaya') ? (document.getElementById('crm-biaya').value.replace(/\./g, '') || "0") : "0";
-            const bayarRaw = document.getElementById('crm-bayar') ? (document.getElementById('crm-bayar').value.replace(/\./g, '') || "0") : "0";
-            const programDeal = document.getElementById('crm-program-siswa') ? document.getElementById('crm-program-siswa').value : '';
-            const sisaHitung = parseInt(biayaRaw) - parseInt(bayarRaw);
-
-            if (status === 'Deal' && !programDeal) {
-                alert('Silakan pilih Program Pendidikan terlebih dahulu!');
-                return;
-            }
-
-            const leadData = currentData.find(d => d.__backendId === backendId);
-
-            if (status === 'Deal') {
-                const isAlreadyConverted = currentData.some(d => d.module === 'data-siswa' && d.fromLeadsId === backendId);
-                
-                if (!isAlreadyConverted) {
-                    await window.dataSdk.update(backendId, {
-                        status_crm: 'Deal',
-                        tanggal_closing: tglAction, 
-                        catatan_crm: catatan,
-                        program_pendidikan: programDeal,
-                        is_closing: true 
-                    });
-
-                    const payloadSiswa = {
-                        module: 'data-siswa',
-                        location: leadData.wilayah || 'Bandung',
-                        fromLeadsId: backendId, 
-                        nama: leadData.nama_siswa || '-',
-                        ttl: leadData.ttl || '-',
-                        no_hp_siswa: leadData.no_hp || '-',
-                        asal_sekolah: leadData.asal_sekolah || '-',
-                        kelas: leadData.kelas || '-',
-                        asal_kota: leadData.asal_kota || '-',
-                        program: programDeal, 
-                        nama_medsos: leadData.nama_medsos || '-',
-                        platform_medsos: leadData.platform_medsos || [],
-                        info_villa_merah_dari: leadData.info_villa_merah_dari || [],
-                        alamat_siswa: leadData.alamat || '-',
-                        nama_ortu: leadData.nama_ortu || '-', 
-                        no_tlp_ortu: leadData.no_tlp_ortu || '-', 
-                        biaya_pendidikan: biayaRaw,
-                        sisa_angsuran: sisaHitung.toString(),
-                        createdAt: tglAction ? new Date(tglAction).toISOString() : new Date().toISOString()
-                    };
-                    const resSiswa = await window.dataSdk.create(payloadSiswa);
-                    
-                    // Add initial payment to tracking
-                    if (parseInt(bayarRaw) > 0) {
-                        await window.dataSdk.create({
-                            module: 'data-pembayaran',
-                            siswaId: resSiswa.id,
-                            namaSiswa: leadData.nama_siswa,
-                            wilayah: leadData.wilayah || 'Bandung',
-                            jumlah: bayarRaw,
-                            tanggal_bayar: tglAction ? new Date(tglAction).toISOString() : new Date().toISOString(),
-                            keterangan: "Bayar Awal (Closing CRM)"
-                        });
-                    }
-                    
-                    alert('Status CLOSING Berhasil!');
-                } else {
-                    alert('Data ini sudah pernah dikonversi menjadi siswa.');
-                }
-            } else {
-                await window.dataSdk.update(backendId, {
-                    status_crm: status,
-                    tgl_followup: tglAction,
-                    catatan_crm: catatan,
-                    is_closing: false
-                });
-                alert('Progres Follow Up diperbarui!');
-            }
-            renderCRMFollowUp();
-        }
-        
         function renderDashboard() {
             // REFRESH DATA GLOBAL SETIAP AKSES DASHBOARD
             currentData = JSON.parse(localStorage.getItem('vmi_app_data')) || [];
@@ -1999,7 +1375,7 @@
             
             const sortedPrograms = Object.entries(programCounts)
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 5);
+                .slice(0, 10); 
             
             const getTopEntry = (counts) => {
                 const entries = Object.entries(counts);
@@ -2072,12 +1448,15 @@
             const chartKey = canvasId;
             if (charts[chartKey]) charts[chartKey].destroy();
             
+            const sliceLabels = olapData.programs.labels.slice(0, 5);
+            const sliceData = olapData.programs.data.slice(0, 5);
+
             charts[chartKey] = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: olapData.programs.labels,
+                    labels: sliceLabels,
                     datasets: [{
-                        data: olapData.programs.data,
+                        data: sliceData,
                         backgroundColor: ['#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
                         borderWidth: 2,
                         borderColor: '#ffffff'
@@ -2294,6 +1673,59 @@
                         }
                     },
                     cutout: '40%'
+                }
+            });
+        }
+
+        // --- MANAJEMEN GRAFIK BATANG VERTIKAL (BERDIRI KE ATAS) ---
+        function renderVerticalBarProgram(olapData, canvasId) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            
+            if (charts.verticalProgramBar) charts.verticalProgramBar.destroy();
+            
+            charts.verticalProgramBar = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: olapData.programs.labels,
+                    datasets: [{
+                        label: 'Jumlah Siswa Terdaftar',
+                        data: olapData.programs.data,
+                        backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                        borderColor: '#2563eb',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` Total: ${context.parsed.y} Siswa`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, color: '#4b5563' },
+                            grid: { color: 'rgba(37, 99, 235, 0.1)' }
+                        },
+                        x: {
+                            ticks: { 
+                                color: '#4b5563', 
+                                font: { family: 'Poppins', size: 9 },
+                                maxRotation: 30,
+                                minRotation: 0
+                            },
+                            grid: { display: false }
+                        }
+                    }
                 }
             });
         }
@@ -3046,7 +2478,7 @@
                         <div class="h-64"><canvas id="chart-tm-daily-sync"></canvas></div>
                     </div>
 
-                    <div class="grid grid-cols-1 ${gridColsStats} gap-6 mb-8">
+                    <div class="grid grid-cols-1 ${gridColsStats} gap-6 mb-6">
                         ${!isFiltered ? `
                         <div class="bg-white rounded-lg p-6 shadow-xl border border-blue-200">
                             <div class="h-[300px]"><canvas id="chart-program-target-module"></canvas></div>
@@ -3060,6 +2492,15 @@
                         </div>
                         <div class="bg-white rounded-lg p-6 shadow-xl border border-blue-200">
                             <div class="h-[300px]"><canvas id="chart-info-target-module"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg p-6 shadow-xl border border-blue-200 mb-8 w-full">
+                        <h3 class="text-blue-600 text-lg font-bold mb-4 flex items-center gap-2 uppercase tracking-tight">
+                            <span class="material-symbols-rounded">bar_chart</span> Peringkat Penyumbang Program Terbanyak
+                        </h3>
+                        <div class="h-80 w-full">
+                            <canvas id="chart-program-vertical-target-module"></canvas>
                         </div>
                     </div>
                     
@@ -3113,6 +2554,7 @@
                 renderChartKota(olapSiswaData, 'chart-kota-target-module');
                 renderChartSekolah(olapSiswaData, 'chart-sekolah-target-module');
                 renderChartInfo(olapSiswaData, 'chart-info-target-module');
+                renderVerticalBarProgram(olapSiswaData, 'chart-program-vertical-target-module'); // Eksekusi grafik batang vertikal
                 if (showDailyChart && dailySiswaStats) renderDailySyncChart(dailySiswaStats);
             }, 100);
         }
@@ -3354,275 +2796,6 @@
                     options: { responsive: true, maintainAspectRatio: false }
                 });
             }
-        }
-        
-        function renderDataLeadsDetail() {
-            const location = currentSubModule || 'Bandung';
-
-            const isAuthorized = (currentUser.role === 'super admin') || 
-                                 (currentUser.role === 'admin' && (currentUser.wilayah === 'Semua' || currentUser.wilayah === location));
-
-            let filteredData = currentData.filter(d => d.module === 'data-leads' && (d.wilayah || '').includes(location));
-            
-            const statusF = selectedStatusFilter || 'all';
-            const progF = selectedProgramFilter || 'all';
-            const monthF = selectedMonthFilter || 'all';
-            const yearF = selectedYearFilter || new Date().getFullYear().toString();
-
-            if (statusF === 'not_closing') {
-                filteredData = filteredData.filter(d => !d.is_closing);
-            } else if (statusF === 'is_closing') {
-                filteredData = filteredData.filter(d => d.is_closing);
-            }
-
-            const allPrograms = getLeadsProgramsList();
-
-            if (progF !== 'all') {
-                filteredData = filteredData.filter(d => d.program === progF);
-            }
-
-            if (monthF !== 'all') {
-                filteredData = filteredData.filter(d => {
-                    const dDate = d.tanggal_input || d.createdAt;
-                    if (!dDate) return false;
-                    const month = new Date(dDate).getMonth() + 1;
-                    return month == monthF;
-                });
-            }
-
-            if (yearF !== 'all') {
-                filteredData = filteredData.filter(d => {
-                    const dDate = d.tanggal_input || d.createdAt;
-                    if (!dDate) return false;
-                    const year = new Date(dDate).getFullYear();
-                    return year == yearF;
-                });
-            }
-
-            const content = document.getElementById('main-content');
-            content.innerHTML = `
-                <div class="bg-white rounded-lg p-6 shadow-xl max-w-full mx-auto border border-blue-200 font-['Poppins']">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <div>
-                            <h2 class="text-2xl font-bold text-blue-600 flex items-center gap-2">
-                                <span class="material-symbols-rounded">description</span> Data Leads - ${location}
-                            </h2>
-                            <p class="text-sm text-gray-600 mt-1 font-medium">Total: ${filteredData.length} Lead Calon Siswa</p>
-                        </div>
-                        <div class="flex flex-wrap gap-3">
-                            <select id="status-filter-leads" onchange="applyLeadsFilter()" class="px-3 py-2 rounded bg-white text-gray-800 border border-blue-300 text-sm font-['Poppins']">
-                                <option value="all" ${statusF === 'all' ? 'selected' : ''}>Semua Status</option>
-                                <option value="not_closing" ${statusF === 'not_closing' ? 'selected' : ''}>Belum Closing</option>
-                                <option value="is_closing" ${statusF === 'is_closing' ? 'selected' : ''}>Sudah Closing</option>
-                            </select>
-                            <select id="program-filter-leads" onchange="applyLeadsFilter()" class="px-3 py-2 rounded bg-white text-gray-800 border border-blue-300 text-sm font-['Poppins']">
-                                <option value="all" ${progF === 'all' ? 'selected' : ''}>Semua Program</option>
-                                ${allPrograms.map(prog => `<option value="${prog}" ${progF === prog ? 'selected' : ''}>${prog || '-'}</option>`).join('')}
-                            </select>
-                            <select id="month-filter-leads" onchange="applyLeadsFilter()" class="px-3 py-2 rounded bg-white text-gray-800 border border-blue-300 text-sm font-['Poppins']">
-                                <option value="all" ${monthF === 'all' ? 'selected' : ''}>Semua Bulan</option>
-                                ${daftarNamaBulan.slice(1).map((m, idx) => `<option value="${idx+1}" ${monthF == idx+1 ? 'selected' : ''}>${m || '-'}</option>`).join('')}
-                            </select>
-                            <select id="year-filter-leads" onchange="applyLeadsFilter()" class="px-3 py-2 rounded bg-white text-gray-800 border border-blue-300 text-sm font-['Poppins']">
-                                ${generateYearOptionsForFilter(yearF)}
-                            </select>
-                            ${isAuthorized ? `
-                                <div class="flex gap-2">
-                                    <button onclick="triggerImport('data-leads', '${location}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded font-bold text-xs transition flex items-center gap-1">
-                                        IMPOR
-                                    </button>
-                                    <button onclick="exportToExcel('data-leads', '${location}')" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded font-bold text-xs transition flex items-center gap-1">
-                                        EKSPOR
-                                    </button>
-                                    <button onclick="showAddDataLeadsForm('${location}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-xs transition">
-                                        + TAMBAH LEAD
-                                    </button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white border border-blue-200 rounded-lg shadow-lg overflow-hidden">
-                        <div class="table-container" style="max-height: 60vh; overflow-y: auto;">
-                            <table class="w-full">
-                                <thead class="sticky top-0 z-10">
-                                    <tr class="bg-blue-600 text-white">
-                                        <th>NO</th><th>NAMA SISWA</th><th>TEMPAT TANGGAL LAHIR</th><th>ASAL SEKOLAH</th><th>KELAS</th><th>ALAMAT</th><th>KOTA/KAB ASAL</th><th>INFO PROGRAM</th><th>MEDIA SOSIAL</th><th>NAMA AKUN</th><th>INFORMASI VILLA MERAH DARI</th><th>HP SISWA</th><th>NAMA ORTU</th><th>HP ORTU</th><th>TGL INPUT</th>
-                                        ${isAuthorized ? '<th class="sticky right-0 bg-blue-600 col-aksi">AKSI</th>' : ''}
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-leads">
-                                    ${filteredData.length === 0 ? `
-                                        <tr><td colspan="${isAuthorized ? '16' : '15'}" class="p-8 text-center text-blue-600 font-medium tracking-tight">Belum ada data leads untuk periode ini</td></tr>
-                                        ` : filteredData.map((lead, idx) => {
-                                            const infoDari = Array.isArray(lead.info_villa_merah_dari) ? lead.info_villa_merah_dari.join(', ') : (lead.info_villa_merah_dari || '-');
-                                            const platform = Array.isArray(lead.platform_medsos) ? lead.platform_medsos.join(', ') : (lead.platform_medsos || '-');
-                                            const isClosingStatus = lead.is_closing || lead.status_crm === 'Deal';
-                                            return `
-                                        <tr class="border-b border-blue-100 hover:bg-blue-50 text-gray-700 transition-colors ${isClosingStatus ? 'bg-emerald-50' : ''}">
-                                            <td class="p-2 text-center text-[10px] font-mono tracking-tighter">${idx + 1}</td>
-                                            <td class="p-2 text-left text-[10px] font-bold ${isClosingStatus ? 'text-emerald-700' : 'text-black'} uppercase tracking-tight" title="${lead.nama_siswa || '-'}">${lead.nama_siswa || '-'} ${isClosingStatus ? '✓' : ''}</td>
-                                            <td class="p-2 text-left text-[10px] font-semibold text-blue-800 uppercase tracking-tight" title="${lead.ttl || '-'}">${lead.ttl || '-'}</td>
-                                            <td class="p-2 text-left text-[10px] uppercase tracking-tighter" title="${lead.asal_sekolah || '-'}">${lead.asal_sekolah || '-'}</td>
-                                            <td class="p-2 text-center text-[10px] uppercase tracking-tighter font-mono">${lead.kelas || '-'}</td>
-                                            <td class="p-2 text-left text-[10px] uppercase allow-wrap tracking-tighter" title="${lead.alamat || '-'}">${lead.alamat || '-'}</td>
-                                            <td class="p-2 text-left text-[10px] uppercase tracking-tight" title="${lead.asal_kota || '-'}">${lead.asal_kota || '-'}</td>
-                                            <td class="p-2 text-left text-[10px] font-bold text-black uppercase tracking-tighter">${lead.program || '-'}</td>
-                                            <td class="p-2 text-left">
-                                                <span class="bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-[8px] font-bold uppercase whitespace-nowrap tracking-tighter">${platform || '-'}</span>
-                                            </td>
-                                            <td class="p-2 text-left text-[10px] uppercase tracking-tighter" title="${lead.nama_medsos || '-'}">${lead.nama_medsos || '-'}</td>
-                                            <td class="p-2 text-left text-[10px] uppercase allow-wrap tracking-tight" title="${infoDari || '-'}">${infoDari || '-'}</td>
-                                            <td class="p-2 text-center text-[10px] font-mono tracking-tighter">${lead.no_hp || '-'}</td>
-                                            <td class="p-2 text-left text-[10px] uppercase tracking-tight">${lead.nama_ortu || '-'}</td>
-                                            <td class="p-2 text-center text-[10px] font-mono">${lead.no_tlp_ortu || '-'}</td>
-                                            <td class="p-2 text-center text-[10px] font-mono tracking-tighter">${formatTanggal(lead.tanggal_input || lead.createdAt)}</td>
-                                            ${isAuthorized ? `
-                                            <td class="p-2 text-center sticky right-0 bg-white border-l border-blue-100 shadow-[-5px_0_10px_rgba(0,0,0,0.05)] col-aksi">
-                                                <div class="flex flex-row justify-center gap-2 items-center">
-                                                    <button onclick="showEditLeadsForm('${lead.__backendId}')" class="text-blue-600 hover:text-blue-800 font-bold uppercase text-[9px]">EDIT</button>
-                                                    <button onclick="deleteData('${lead.__backendId}')" class="text-red-600 hover:text-red-700 font-bold uppercase text-[9px]">HAPUS</button>
-                                                </div>
-                                            </td>` : ''}
-                                        </tr>`}).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>`;
-        }
-        
-        function applyLeadsFilter() {
-            selectedStatusFilter = document.getElementById('status-filter-leads')?.value || 'all'; 
-            selectedProgramFilter = document.getElementById('program-filter-leads')?.value || 'all';
-            selectedMonthFilter = document.getElementById('month-filter-leads')?.value || 'all';
-            selectedYearFilter = document.getElementById('year-filter-leads')?.value || new Date().getFullYear().toString();
-            renderDataLeadsDetail();
-        }
-
-        function showAddDataLeadsForm(location) {
-            renderLeadsForm(location);
-        }
-
-        function showEditLeadsForm(backendId) {
-            const data = currentData.find(d => d.__backendId === backendId);
-            if (!data) return;
-            renderLeadsForm(data.wilayah || 'Bandung', data);
-        }
-
-        function renderLeadsForm(location, editData = null) {
-            const content = document.getElementById('main-content');
-            const isEdit = !!editData;
-            const allPrograms = getLeadsProgramsList();
-            const tglDefaultLeads = isEdit && (editData.tanggal_input || editData.createdAt) ? new Date(editData.tanggal_input || editData.createdAt).toISOString().split('T')[0] : '';
-
-            content.innerHTML = `
-                <div class="bg-white rounded-lg p-6 shadow-xl max-w-full mx-auto border border-blue-200 font-['Poppins']">
-                    <h2 class="text-2xl font-bold text-blue-600 mb-6 uppercase text-left">${isEdit ? 'Edit' : 'Tambah'} Lead - ${location}</h2>
-                    <form id="form-data-leads" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Nama Siswa</label><input type="text" name="nama_siswa" value="${isEdit ? (editData.nama_siswa || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Tempat Tanggal Lahir</label><input type="text" name="ttl" value="${isEdit ? (editData.ttl || '') : ''}" required placeholder="Misal: Bandung, 1 Januari 2008" class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left">
-                                <label class="block text-sm font-bold mb-1">Program</label>
-                                <select name="program" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']">
-                                    <option value="">Pilih Program</option>
-                                    ${allPrograms.map(prog => `<option value="${prog}" ${isEdit && editData.program === prog ? 'selected' : ''}>${prog || '-'}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Asal Sekolah</label><input type="text" name="asal_sekolah" value="${isEdit ? (editData.asal_sekolah || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Kelas</label><input type="text" name="kelas" value="${isEdit ? (editData.kelas || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Asal Kota/Kab</label><input type="text" name="asal_kota" value="${isEdit ? (editData.asal_kota || '') : ''}" required placeholder="Misal: Bandung" class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">No HP Siswa</label><input type="text" name="no_hp" value="${isEdit ? (editData.no_hp || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Nama Akun Medsos</label><input type="text" name="nama_medsos" value="${isEdit ? (editData.nama_medsos || '') : ''}" class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">Nama Orang Tua</label><input type="text" name="nama_ortu" value="${isEdit ? (editData.nama_ortu || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left"><label class="block text-sm font-bold mb-1">No Telepon Orang Tua</label><input type="text" name="no_tlp_ortu" value="${isEdit ? (editData.no_tlp_ortu || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']"></div>
-                            <div class="text-left">
-                                <label class="block text-sm font-bold mb-1">Tanggal Input</label>
-                                <input type="date" name="tanggal_input" value="${tglDefaultLeads}" required 
-                                       class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']">
-                            </div>
-                            <div class="text-left">
-                                <label class="block text-sm font-bold mb-1">Alamat</label>
-                                <input type="text" name="alamat" value="${isEdit ? (editData.alamat || '') : ''}" required class="w-full p-2 border rounded border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Poppins']">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="flex flex-col text-left">
-                                <label class="block text-sm font-bold mb-2 text-blue-600">Informasi VM Dari</label>
-                                <div class="grid grid-cols-2 gap-2 p-3 border rounded border-blue-300 bg-white h-[110px] overflow-y-auto">
-                                    ${daftarSumberInfo.map(info => `
-                                        <label class="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-1 rounded transition-colors text-[10px]">
-                                            <input type="checkbox" name="info_villa_merah_dari" value="${info}" class="lead-info-checkbox h-3 w-3" ${isEdit && editData.info_villa_merah_dari?.includes(info) ? 'checked' : ''}>
-                                            <span class="whitespace-nowrap tracking-tight">${info || '-'}</span>
-                                        </label>`).join('')}
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col text-left">
-                                <label class="block text-sm font-bold mb-2 text-blue-600">Media Sosial</label>
-                                <div class="grid grid-cols-2 gap-2 p-3 border rounded border-blue-300 bg-white h-[110px] overflow-y-auto">
-                                    ${['Instagram','TikTok','Facebook','Twitter','YouTube','Lainnya'].map(p => `
-                                        <label class="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-1 rounded transition-colors text-[10px]">
-                                            <input type="checkbox" name="platform_medsos" value="${p}" class="lead-platform-checkbox h-3 w-3" ${isEdit && editData.platform_medsos?.includes(p) ? 'checked' : ''}>
-                                            <span class="whitespace-nowrap tracking-tight">${p || '-'}</span>
-                                        </label>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex gap-4 mt-8">
-                            <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded font-bold uppercase hover:bg-blue-700 transition shadow-md">${isEdit ? 'Update' : 'Simpan'}</button>
-                            <button type="button" onclick="navigateTo('data-leads', '${location}')" class="bg-gray-500 text-white px-8 py-2.5 rounded font-bold uppercase hover:bg-gray-600 transition shadow-md">Batal</button>
-                        </div>
-                    </form>
-                </div>`;
-
-            document.querySelectorAll('.lead-platform-checkbox').forEach(cb => {
-                cb.onchange = () => {
-                    const checkedCount = document.querySelectorAll('.lead-platform-checkbox:checked').length;
-                    if (checkedCount > 3) {
-                        cb.checked = false;
-                        alert('Maksimal pilih 3 media sosial!');
-                    }
-                };
-            });
-
-            document.querySelectorAll('.lead-info-checkbox').forEach(cb => {
-                cb.onchange = () => {
-                    const checkedCount = document.querySelectorAll('.lead-info-checkbox:checked').length;
-                    if (checkedCount > 3) {
-                        cb.checked = false;
-                        alert('Maksimal pilih 3 sumber informasi!');
-                    }
-                };
-            });
-
-            document.getElementById('form-data-leads').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                const selectedPlatforms = Array.from(document.querySelectorAll('.lead-platform-checkbox:checked')).map(cb => cb.value);
-                const selectedInfo = Array.from(document.querySelectorAll('.lead-info-checkbox:checked')).map(cb => cb.value);
-                const tglLeads = fd.get('tanggal_input');
-                
-                const payload = Object.fromEntries(fd.entries());
-                payload.wilayah = location;
-                payload.platform_medsos = selectedPlatforms;
-                payload.info_villa_merah_dari = selectedInfo;
-                if (!isEdit) payload.tgl_followup = "";
-                payload.createdAt = tglLeads ? new Date(tglLeads).toISOString() : new Date().toISOString();
-                payload.tanggal_input = payload.createdAt;
-
-                let result;
-                if (isEdit) {
-                    result = await window.dataSdk.update(editData.__backendId, payload);
-                } else {
-                    result = await window.dataSdk.create({ ...payload, module: 'data-leads' });
-                }
-                if (result.isOk) navigateTo('data-leads', location);
-            });
         }
         
         const dataHandler = {
